@@ -1,29 +1,39 @@
 import hug
 import sections
-from pymongo import MongoClient
+import pymongo
 import json
+import bson
+
+from pymongo import MongoClient
 from bson import json_util, ObjectId
+#from bson.json_util import dumps
 
-def getSections(id: hug.types.uuid):
-    client = MongoClient('mongodb://usr_gunde_5dk:Rrd3b7yk28rbAwZb@ds035036.mlab.com:35036/gunde5dkcom')
-    db = client.gunde5dkcom
-
-    result = db.packages.find_one({"application_id":ObjectId(id)})
-    #select * from packages where application_id = ID
-
-    packages_sections = result["sections"]
-
-
-    listSections = []
-    for section_id in packages_sections:
-        dict_sections = db.sections.find({"_id":section_id})
-        list_section = list(dict_sections)
-        listSections.append(list_section[0])
-
-    dictSections = {}
-    dictSections["sections"] = listSections
-    result = json.loads(json_util.dumps(dictSections))
-
+def getSections(id: hug.types.text):
+    #id : application_id
+    
+    #/getSections/57fbd3c17d2ba5447f72c796
+    try:
+        client = MongoClient('mongodb://usr_gunde_5dk:Rrd3b7yk28rbAwZb@ds035036.mlab.com:35036/gunde5dkcom')
+        db = client.gunde5dkcom
+    
+        sectionsInfo = json.loads(json_util.dumps({'sections': []}))
+        
+        resultSections = db.packages.find({"application_id":ObjectId(id)})
+        if resultSections.count()>0:
+            packages_sections = resultSections[0]["sections"]
+    
+            resultSectionInfo = db.sections.find({"_id":{'$in':packages_sections}}, {"order":0}).sort('order',pymongo.ASCENDING)
+            if resultSectionInfo.count()>0:
+                sectionsInfo = json.loads(json_util.dumps({'sections': resultSectionInfo}))
+            else:
+                sectionsInfo = json.loads(json_util.dumps({'sections': []}))
+        else:
+            sectionsInfo = json.loads(json_util.dumps({'sections': []}))
+            
+    except bson.errors.InvalidId:
+        #gonderilen ID ObjectID tipinde degils
+        pass
+    
     client.close()
 
-    return result
+    return sectionsInfo
